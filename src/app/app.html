@@ -1,0 +1,133 @@
+@switch (phase()) {
+  @case ('loading') {
+    <div class="flex min-h-dvh items-center justify-center">
+      <div class="flex flex-col items-center gap-4 text-fg-subtle">
+        <app-logo [size]="40" />
+        <app-icon name="spinner" [size]="18" />
+      </div>
+    </div>
+  }
+
+  @case ('error') {
+    <div class="flex min-h-dvh items-center justify-center px-4">
+      <div class="card w-full max-w-sm p-6 text-center">
+        <span class="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-accent-soft text-accent-text">
+          <app-icon name="alert-circle" [size]="20" />
+        </span>
+        <h1 class="text-base font-semibold">Sunucuya bağlanılamadı</h1>
+        <p class="mt-1.5 text-sm text-fg-muted">{{ errorText() }}</p>
+        <button type="button" class="btn btn-primary mt-5 w-full" (click)="retry()">Tekrar dene</button>
+      </div>
+    </div>
+  }
+
+  @case ('login') {
+    <app-login (loggedIn)="onLoggedIn()" />
+  }
+
+  @case ('app') {
+    <div class="min-h-dvh lg:pl-[248px]">
+      <!-- Masaüstü kenar menüsü -->
+      <aside class="fixed inset-y-0 left-0 z-30 hidden w-[248px] flex-col border-r border-line bg-bg px-3.5 pb-4 pt-5 lg:flex">
+        <a routerLink="/" class="mb-7 flex items-center gap-2.5 px-2">
+          <app-logo [size]="28" />
+          <span class="text-[17px] font-semibold tracking-tight">Özetçi</span>
+        </a>
+
+        <nav class="flex flex-col gap-0.5" aria-label="Ana menü">
+          @for (item of nav; track item.path) {
+            <a
+              [routerLink]="item.path"
+              routerLinkActive="!bg-surface-2 !text-fg"
+              [routerLinkActiveOptions]="{ exact: item.exact }"
+              class="group flex h-9 items-center gap-2.5 rounded-lg px-2.5 text-sm font-medium text-fg-muted transition-colors hover:bg-surface-2 hover:text-fg"
+            >
+              <app-icon [name]="item.icon" [size]="17" />
+              <span class="flex-1">{{ item.label }}</span>
+              @switch (item.path) {
+                @case ('/') {
+                  @if (failedCount() > 0) {
+                    <span class="badge badge-danger">{{ failedCount() }}</span>
+                  } @else if (pendingCount() > 0) {
+                    <span class="badge">{{ pendingCount() }}</span>
+                  }
+                }
+                @case ('/kanallar') {
+                  <span class="kbd-mono text-xs text-fg-subtle">{{ store.channels().length }}</span>
+                }
+                @case ('/ayarlar') {
+                  @if (settingsNeedsAttention()) {
+                    <span class="h-1.5 w-1.5 rounded-full bg-warning" title="E-posta ayarları eksik"></span>
+                  }
+                }
+              }
+            </a>
+          }
+        </nav>
+
+        <div class="mt-auto">
+          <app-monitor-card />
+        </div>
+      </aside>
+
+      <!-- Mobil üst çubuk -->
+      <header class="sticky top-0 z-30 border-b border-line bg-bg/85 backdrop-blur-md lg:hidden">
+        <div class="flex h-14 items-center justify-between gap-3 px-4">
+          <a routerLink="/" class="flex items-center gap-2">
+            <app-logo [size]="26" />
+            <span class="text-base font-semibold tracking-tight">Özetçi</span>
+          </a>
+          @if (store.status(); as s) {
+            <div class="flex items-center gap-1.5">
+              <span class="flex h-8 items-center gap-2 rounded-full border border-line bg-surface px-3 text-xs font-medium text-fg-muted">
+                <span class="h-1.5 w-1.5 rounded-full" [class]="s.enabled ? 'bg-success live-dot' : 'bg-fg-subtle'"></span>
+                <span class="kbd-mono">{{ mobileStatus() }}</span>
+              </span>
+              <button
+                type="button"
+                class="btn btn-ghost btn-icon btn-sm"
+                aria-label="Şimdi tara"
+                [disabled]="s.scanning || scanning()"
+                (click)="scanNow()"
+              >
+                <app-icon [name]="s.scanning || scanning() ? 'spinner' : 'refresh'" [size]="17" />
+              </button>
+            </div>
+          }
+        </div>
+      </header>
+
+      <main class="mx-auto w-full max-w-[920px] px-4 pb-[calc(96px+env(safe-area-inset-bottom))] pt-5 sm:px-6 lg:px-10 lg:pb-16 lg:pt-10">
+        <router-outlet />
+      </main>
+
+      <!-- Mobil alt menü -->
+      <nav
+        class="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-bg/90 pb-[env(safe-area-inset-bottom)] backdrop-blur-md lg:hidden"
+        aria-label="Ana menü"
+      >
+        <div class="mx-auto grid h-16 max-w-md grid-cols-3">
+          @for (item of nav; track item.path) {
+            <a
+              [routerLink]="item.path"
+              routerLinkActive="!text-fg"
+              [routerLinkActiveOptions]="{ exact: item.exact }"
+              class="relative flex flex-col items-center justify-center gap-1 text-[11px] font-medium text-fg-subtle transition-colors"
+            >
+              <app-icon [name]="item.icon" [size]="20" />
+              {{ item.label }}
+              @if (item.path === '/' && failedCount() > 0) {
+                <span class="absolute right-[calc(50%-18px)] top-2.5 h-2 w-2 rounded-full bg-accent ring-2 ring-bg"></span>
+              }
+              @if (item.path === '/ayarlar' && settingsNeedsAttention()) {
+                <span class="absolute right-[calc(50%-18px)] top-2.5 h-2 w-2 rounded-full bg-warning ring-2 ring-bg"></span>
+              }
+            </a>
+          }
+        </div>
+      </nav>
+    </div>
+  }
+}
+
+<app-toast-host />

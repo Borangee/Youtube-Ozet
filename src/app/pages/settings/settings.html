@@ -1,0 +1,313 @@
+<header class="mb-5">
+  <h1 class="text-2xl font-semibold tracking-tight">Ayarlar</h1>
+  <p class="mt-1 text-sm text-fg-muted">E-posta, tarama sıklığı ve özet tercihleri.</p>
+</header>
+
+<nav class="-mx-4 mb-2 flex gap-1.5 overflow-x-auto px-4 pb-2 sm:mx-0 sm:px-0" aria-label="Ayar bölümleri">
+  @for (s of sections; track s.id) {
+    <button
+      type="button"
+      class="flex h-8 shrink-0 items-center gap-1.5 rounded-full border border-line bg-surface px-3 text-[13px] font-medium text-fg-muted transition-colors hover:text-fg"
+      (click)="scrollTo(s.id)"
+    >
+      <app-icon [name]="s.icon" [size]="13" />
+      {{ s.title }}
+    </button>
+  }
+</nav>
+
+@if (store.settings(); as cfg) {
+  <!-- E-posta -->
+  <section id="e-posta" class="grid scroll-mt-20 gap-4 border-b border-line py-8 lg:grid-cols-[200px_minmax(0,1fr)] lg:gap-8">
+    <div>
+      <h2 class="text-[15px] font-semibold">E-posta</h2>
+      <p class="mt-1 text-[13px] leading-relaxed text-fg-muted">Özetler bu hesaptan, bu adreslere gönderilir.</p>
+      @if (emailReady()) {
+        <p class="mt-3 inline-flex items-center gap-1.5 text-[13px] font-medium text-success-text">
+          <app-icon name="check" [size]="14" /> Hazır
+        </p>
+      } @else {
+        <p class="mt-3 inline-flex items-center gap-1.5 text-[13px] font-medium text-warning-text">
+          <app-icon name="alert" [size]="14" /> Eksik
+        </p>
+      }
+    </div>
+
+    <form class="card p-4 sm:p-5" (submit)="saveEmail($event)">
+      <div class="grid gap-4 sm:grid-cols-2">
+        <div>
+          <label class="field-label" for="sender">Gönderen Gmail adresi</label>
+          <input
+            id="sender"
+            class="input"
+            type="email"
+            autocomplete="email"
+            placeholder="ornek@gmail.com"
+            [value]="sender()"
+            (input)="sender.set($any($event.target).value)"
+          />
+        </div>
+        <div>
+          <label class="field-label flex items-center justify-between" for="app-password">
+            Uygulama şifresi
+            @if (cfg.email.hasAppPassword) {
+              <span class="inline-flex items-center gap-1 text-xs font-normal text-success-text"><app-icon name="lock" [size]="11" /> Kayıtlı</span>
+            }
+          </label>
+          <div class="relative">
+            <input
+              id="app-password"
+              class="input pr-10"
+              [type]="showPassword() ? 'text' : 'password'"
+              autocomplete="new-password"
+              [placeholder]="cfg.email.hasAppPassword ? 'Değiştirmek için yenisini yaz' : 'abcd efgh ijkl mnop'"
+              [value]="password()"
+              (input)="password.set($any($event.target).value)"
+            />
+            <button
+              type="button"
+              class="absolute inset-y-0 right-0 flex w-10 items-center justify-center text-fg-subtle hover:text-fg"
+              [attr.aria-label]="showPassword() ? 'Şifreyi gizle' : 'Şifreyi göster'"
+              (click)="showPassword.set(!showPassword())"
+            >
+              <app-icon [name]="showPassword() ? 'eye-off' : 'eye'" />
+            </button>
+          </div>
+        </div>
+      </div>
+      <p class="field-hint">
+        Gmail normal şifreni kabul etmez. İki adımlı doğrulama açıkken
+        <a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noopener" class="font-medium text-fg underline underline-offset-2">
+          Google hesabından
+        </a>
+        16 haneli bir uygulama şifresi oluştur. Kaydedilen şifre bir daha ekranda gösterilmez.
+      </p>
+
+      <div class="mt-4">
+        <label class="field-label" for="receivers">Alıcılar</label>
+        <input
+          id="receivers"
+          class="input"
+          type="text"
+          autocomplete="off"
+          placeholder="sen@ornek.com, ikinci@ornek.com"
+          [value]="receivers()"
+          (input)="receivers.set($any($event.target).value)"
+        />
+        <p class="field-hint">Birden fazla adresi virgülle ayırabilirsin.</p>
+      </div>
+
+      <button
+        type="button"
+        class="mt-4 flex items-center gap-1 text-[13px] font-medium text-fg-muted hover:text-fg"
+        [attr.aria-expanded]="showAdvanced()"
+        (click)="showAdvanced.set(!showAdvanced())"
+      >
+        <app-icon [name]="showAdvanced() ? 'chevron-down' : 'chevron-right'" [size]="14" />
+        SMTP sunucusu (Gmail dışı için)
+      </button>
+      @if (showAdvanced()) {
+        <div class="animate-fade-up mt-3 grid grid-cols-[1fr_110px] gap-3">
+          <div>
+            <label class="field-label" for="smtp-host">Sunucu</label>
+            <input id="smtp-host" class="input" type="text" [value]="smtpHost()" (input)="smtpHost.set($any($event.target).value)" />
+          </div>
+          <div>
+            <label class="field-label" for="smtp-port">Port</label>
+            <input id="smtp-port" class="input" type="number" inputmode="numeric" [value]="smtpPort()" (input)="smtpPort.set($any($event.target).value)" />
+          </div>
+        </div>
+      }
+
+      <div class="mt-5 flex flex-wrap items-center gap-2 border-t border-line pt-4">
+        <button type="submit" class="btn btn-primary" [disabled]="!emailDirty() || savingEmail()">
+          @if (savingEmail()) {
+            <app-icon name="spinner" />
+          }
+          Kaydet
+        </button>
+        <button type="button" class="btn btn-secondary" [disabled]="testing() || savingEmail()" (click)="sendTest()">
+          <app-icon [name]="testing() ? 'spinner' : 'send'" />
+          Test e-postası gönder
+        </button>
+        @if (emailDirty()) {
+          <button type="button" class="btn btn-ghost" (click)="resetEmailForm()">Vazgeç</button>
+        }
+      </div>
+    </form>
+  </section>
+
+  <!-- Tarama -->
+  <section id="tarama" class="grid scroll-mt-20 gap-4 border-b border-line py-8 lg:grid-cols-[200px_minmax(0,1fr)] lg:gap-8">
+    <div>
+      <h2 class="text-[15px] font-semibold">Tarama</h2>
+      <p class="mt-1 text-[13px] leading-relaxed text-fg-muted">Kanallar ne sıklıkla kontrol edilsin.</p>
+    </div>
+    <div class="card divide-y divide-line">
+      <div class="flex items-center justify-between gap-4 p-4 sm:px-5">
+        <div>
+          <p class="text-sm font-medium">Otomatik tarama</p>
+          <p class="mt-0.5 text-[13px] text-fg-muted">Kapalıyken yeni videolar kontrol edilmez.</p>
+        </div>
+        <app-switch [checked]="cfg.scan.enabled" label="Otomatik tarama" (changed)="setAutomation($event)" />
+      </div>
+      <div class="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+        <div>
+          <p class="text-sm font-medium">Sıklık</p>
+          <p class="mt-0.5 text-[13px] text-fg-muted">YouTube beslemesi genelde birkaç dakika gecikmeli güncellenir.</p>
+        </div>
+        <app-segmented
+          [options]="intervalOptions"
+          [value]="cfg.scan.intervalMinutes"
+          label="Tarama sıklığı"
+          (changed)="save({ scan: { intervalMinutes: $event } }, 'Tarama sıklığı ' + $event + ' dakika oldu.')"
+        />
+      </div>
+      <div class="flex items-center justify-between gap-4 p-4 sm:px-5">
+        <div>
+          <p class="text-sm font-medium">Shorts videolarını atla</p>
+          <p class="mt-0.5 text-[13px] text-fg-muted">Kısa videolar için e-posta gönderilmez.</p>
+        </div>
+        <app-switch [checked]="cfg.scan.skipShorts" label="Shorts videolarını atla" (changed)="save({ scan: { skipShorts: $event } })" />
+      </div>
+    </div>
+  </section>
+
+  <!-- Özet -->
+  <section id="ozet" class="grid scroll-mt-20 gap-4 border-b border-line py-8 lg:grid-cols-[200px_minmax(0,1fr)] lg:gap-8">
+    <div>
+      <h2 class="text-[15px] font-semibold">Özet</h2>
+      <p class="mt-1 text-[13px] leading-relaxed text-fg-muted">Gemini'nin hazırlayacağı özetin biçimi.</p>
+    </div>
+    <div class="card divide-y divide-line">
+      <div class="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+        <p class="text-sm font-medium">Dil</p>
+        <app-segmented [options]="languageOptions" [value]="cfg.summary.language" label="Özet dili" (changed)="save({ summary: { language: $event } })" />
+      </div>
+      <div class="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+        <div>
+          <p class="text-sm font-medium">Uzunluk</p>
+          <p class="mt-0.5 text-[13px] text-fg-muted">Kısa: 1 paragraf · Orta: 2-3 paragraf · Ayrıntılı: 4-5 paragraf</p>
+        </div>
+        <app-segmented [options]="lengthOptions" [value]="cfg.summary.length" label="Özet uzunluğu" (changed)="save({ summary: { length: $event } })" />
+      </div>
+      <div class="flex items-center justify-between gap-4 p-4 sm:px-5">
+        <div>
+          <p class="text-sm font-medium">Videoyu izleyerek özetle</p>
+          <p class="mt-0.5 text-[13px] leading-relaxed text-fg-muted">
+            Gemini videonun görüntü ve sesini doğrudan işler; özet çok daha isabetli olur ama daha fazla kota harcar.
+            Kapalıyken altyazı, o da yoksa açıklama kullanılır. 2 saatten uzun videolarda otomatik olarak altyazıya geçilir.
+          </p>
+        </div>
+        <app-switch [checked]="cfg.summary.watchVideo" label="Videoyu izleyerek özetle" (changed)="save({ summary: { watchVideo: $event } })" />
+      </div>
+    </div>
+  </section>
+
+  <!-- Görünüm -->
+  <section id="gorunum" class="grid scroll-mt-20 gap-4 border-b border-line py-8 lg:grid-cols-[200px_minmax(0,1fr)] lg:gap-8">
+    <div>
+      <h2 class="text-[15px] font-semibold">Görünüm</h2>
+      <p class="mt-1 text-[13px] leading-relaxed text-fg-muted">Yalnızca bu tarayıcıda geçerli.</p>
+    </div>
+    <div class="card flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+      <p class="text-sm font-medium">Tema</p>
+      <app-segmented [options]="themeOptions" [value]="theme.preference()" label="Tema" (changed)="theme.set($event)" />
+    </div>
+  </section>
+
+  <!-- 7/24 -->
+  <section id="kesintisiz" class="grid scroll-mt-20 gap-4 border-b border-line py-8 lg:grid-cols-[200px_minmax(0,1fr)] lg:gap-8">
+    <div>
+      <h2 class="text-[15px] font-semibold">7/24 çalışma</h2>
+      <p class="mt-1 text-[13px] leading-relaxed text-fg-muted">Tarayıcıyı kapatsan da tarama sunucuda devam eder.</p>
+    </div>
+    <div class="card min-w-0 p-4 sm:p-5">
+      <p class="text-[13px] leading-relaxed text-fg-muted">
+        AI Studio / Cloud Run gibi ortamlar bir süre istek gelmezse sunucuyu uyutur ve tarama durur. Bunu önlemek için
+        <a href="https://cron-job.org" target="_blank" rel="noopener" class="font-medium text-fg underline underline-offset-2">cron-job.org</a>
+        gibi ücretsiz bir servise aşağıdaki adresi her 5 dakikada bir çağırmasını söyle. Adres gizli bir anahtar içerir, paylaşma.
+      </p>
+      <div class="mt-3">
+        <app-copy-field [value]="cronUrl()" label="Tarama tetikleyici adresi" />
+      </div>
+      <div class="mt-4 flex items-start gap-2.5 rounded-lg bg-warning-soft px-3 py-2.5 text-[13px] leading-relaxed text-warning-text">
+        <app-icon name="info" [size]="15" class="mt-0.5" />
+        <span>
+          Cloud Run'da dosya sistemi kalıcı değildir; sunucu yeniden başlarsa kanal listesi ve geçmiş, son yayınlanan sürüme döner.
+          Kalıcı kullanım için uygulamayı kendi bilgisayarında, bir VPS'te ya da kalıcı diskli bir ortamda çalıştır
+          (<code class="kbd-mono">DATA_DIR</code> ile veri klasörünü seçebilirsin).
+        </span>
+      </div>
+    </div>
+  </section>
+
+  <!-- Güvenlik -->
+  <section id="guvenlik" class="grid scroll-mt-20 gap-4 border-b border-line py-8 lg:grid-cols-[200px_minmax(0,1fr)] lg:gap-8">
+    <div>
+      <h2 class="text-[15px] font-semibold">Güvenlik</h2>
+      <p class="mt-1 text-[13px] leading-relaxed text-fg-muted">Uygulamaya kimlerin erişebileceği.</p>
+    </div>
+    <div class="card min-w-0 p-4 sm:p-5">
+      @if (authEnabled()) {
+        <div class="flex items-center justify-between gap-4">
+          <div class="flex items-center gap-3">
+            <span class="flex h-9 w-9 items-center justify-center rounded-full bg-success-soft text-success-text">
+              <app-icon name="lock" [size]="16" />
+            </span>
+            <div>
+              <p class="text-sm font-medium">Şifre koruması açık</p>
+              <p class="text-[13px] text-fg-muted">Şifreyi değiştirmek için APP_PASSWORD değerini güncelle.</p>
+            </div>
+          </div>
+          <button type="button" class="btn btn-secondary btn-sm" (click)="logout()">
+            <app-icon name="logout" [size]="14" /> Çıkış yap
+          </button>
+        </div>
+      } @else {
+        <div class="flex items-start gap-3">
+          <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-accent-soft text-accent-text">
+            <app-icon name="alert" [size]="16" />
+          </span>
+          <div class="min-w-0">
+            <p class="text-sm font-medium">Şifre koruması kapalı</p>
+            <p class="mt-1 text-[13px] leading-relaxed text-fg-muted">
+              Uygulamanın adresini bilen herkes kanallarını ve e-posta ayarlarını değiştirebilir. Sunucuda
+              <code class="kbd-mono text-fg">APP_PASSWORD</code> ortam değişkenini tanımla; giriş ekranı otomatik olarak açılır.
+              AI Studio'da: Ayarlar → Secrets → <code class="kbd-mono text-fg">APP_PASSWORD</code>.
+            </p>
+          </div>
+        </div>
+      }
+    </div>
+  </section>
+
+  <!-- Yerel bot -->
+  <section id="yerel-bot" class="grid scroll-mt-20 gap-4 py-8 lg:grid-cols-[200px_minmax(0,1fr)] lg:gap-8">
+    <div>
+      <h2 class="text-[15px] font-semibold">Yerel bot</h2>
+      <p class="mt-1 text-[13px] leading-relaxed text-fg-muted">Kendi bilgisayarında çalışan, kurulum gerektirmeyen Python sürümü.</p>
+    </div>
+    <div class="card min-w-0 p-4 sm:p-5">
+      <p class="text-[13px] leading-relaxed text-fg-muted">
+        <code class="kbd-mono text-fg">bot.py</code> yalnızca Python 3 ile çalışır, ek paket istemez. Kanal listesini bu uygulamadan alır.
+        E-posta ve Gemini anahtarını yanındaki <code class="kbd-mono text-fg">.env</code> dosyasına yaz.
+      </p>
+      <div class="mt-3 flex flex-wrap gap-2">
+        <button type="button" class="btn btn-secondary btn-sm" (click)="downloadBot()">
+          <app-icon name="download" [size]="14" /> bot.py indir
+        </button>
+        <button type="button" class="btn btn-secondary btn-sm" (click)="exportChannels()">
+          <app-icon name="download" [size]="14" /> channels.json indir
+        </button>
+      </div>
+      <p class="field-label mt-5">Kanalları eşitle ve başlat</p>
+      <pre class="kbd-mono overflow-x-auto rounded-lg border border-line bg-surface-2 px-3 py-2.5 text-[12.5px] leading-relaxed text-fg"><span class="text-fg-subtle">$</span> python3 bot.py sync "{{ botSyncUrl() }}"
+<span class="text-fg-subtle">$</span> python3 bot.py start</pre>
+      <div class="mt-4 flex items-start gap-2.5 rounded-lg bg-surface-2 px-3 py-2.5 text-[13px] leading-relaxed text-fg-muted">
+        <app-icon name="info" [size]="15" class="mt-0.5" />
+        <span>Bot ile bu sunucudaki otomatik taramayı aynı anda açık tutarsan her video için iki e-posta gelir. Birini kapat.</span>
+      </div>
+    </div>
+  </section>
+}
