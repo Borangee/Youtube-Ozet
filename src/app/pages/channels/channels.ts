@@ -190,7 +190,7 @@ export class Channels {
   async summarize(ch: Channel): Promise<void> {
     this.busy.update((s) => new Set(s).add(ch.id));
     try {
-      const { state } = await this.api.summarizeLatest(ch.id, false);
+      const { state } = await this.api.summarizeVideo(ch.id, null, false);
       this.store.apply(state);
       this.toast.success(`${ch.name} kanalının son videosu özetleniyor.`, {
         label: 'Akışta gör',

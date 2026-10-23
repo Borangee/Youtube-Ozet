@@ -1,20 +1,15 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getAuth, signInWithPopup, GoogleAuthProvider, signOut } from 'firebase/auth';
 import firebaseConfig from '../../firebase-applet-config.json';
+import type { SubscriptionChannel } from './pages/channels/import-helpers';
 
 /**
  * Google ile giriş yapıp kullanıcının YouTube aboneliklerini okur.
- * Bu modül yalnızca "YouTube aboneliklerimden aktar" açıldığında dinamik
- * olarak yüklenir; Firebase ana paketi şişirmesin.
+ * Bu modül yalnızca abonelik aktarma paneli açıldığında dinamik olarak
+ * yüklenir; Firebase ana paketi şişirmesin.
  *
  * Erişim jetonu sunucuya gönderilmez, YouTube API'si doğrudan tarayıcıdan çağrılır.
  */
-
-export interface SubscriptionChannel {
-  id: string;
-  name: string;
-  avatar: string;
-}
 
 function auth() {
   const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
@@ -37,10 +32,6 @@ export async function signOutGoogle(): Promise<void> {
   } catch {
     // yok say
   }
-}
-
-export function enableYoutubeApiUrl(): string {
-  return `https://console.cloud.google.com/apis/library/youtube.googleapis.com?project=${encodeURIComponent(firebaseConfig.projectId)}`;
 }
 
 export class YoutubeApiDisabledError extends Error {}

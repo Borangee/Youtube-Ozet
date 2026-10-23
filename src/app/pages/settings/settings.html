@@ -17,6 +17,88 @@
 </nav>
 
 @if (store.settings(); as cfg) {
+  <!-- Gemini -->
+  <section id="gemini" class="grid scroll-mt-20 gap-4 border-b border-line py-8 lg:grid-cols-[200px_minmax(0,1fr)] lg:gap-8">
+    <div>
+      <h2 class="text-[15px] font-semibold">Gemini</h2>
+      <p class="mt-1 text-[13px] leading-relaxed text-fg-muted">Videoları özetleyen yapay zekâ için API anahtarı.</p>
+      @if (cfg.gemini.hasApiKey) {
+        <p class="mt-3 inline-flex items-center gap-1.5 text-[13px] font-medium text-success-text">
+          <app-icon name="check" [size]="14" /> Anahtar var
+        </p>
+      } @else {
+        <p class="mt-3 inline-flex items-center gap-1.5 text-[13px] font-medium text-warning-text">
+          <app-icon name="alert" [size]="14" /> Eksik
+        </p>
+      }
+    </div>
+
+    <form class="card min-w-0 p-4 sm:p-5" (submit)="saveGemini($event)">
+      <label class="field-label flex items-center justify-between" for="gemini-key">
+        API anahtarı
+        @if (cfg.gemini.source === 'ui') {
+          <span class="inline-flex items-center gap-1 text-xs font-normal text-success-text"><app-icon name="lock" [size]="11" /> Kayıtlı</span>
+        } @else if (cfg.gemini.source === 'env') {
+          <span class="text-xs font-normal text-fg-subtle">.env dosyasından okunuyor</span>
+        }
+      </label>
+      <div class="relative">
+        <input
+          id="gemini-key"
+          class="input pr-10"
+          [type]="showGeminiKey() ? 'text' : 'password'"
+          autocomplete="off"
+          spellcheck="false"
+          [placeholder]="cfg.gemini.hasApiKey ? 'Değiştirmek için yenisini yapıştır' : 'Anahtarı buraya yapıştır'"
+          [value]="geminiKey()"
+          (input)="geminiKey.set($any($event.target).value)"
+        />
+        <button
+          type="button"
+          class="absolute inset-y-0 right-0 flex w-10 items-center justify-center text-fg-subtle hover:text-fg"
+          [attr.aria-label]="showGeminiKey() ? 'Anahtarı gizle' : 'Anahtarı göster'"
+          (click)="showGeminiKey.set(!showGeminiKey())"
+        >
+          <app-icon [name]="showGeminiKey() ? 'eye-off' : 'eye'" />
+        </button>
+      </div>
+      <p class="field-hint">
+        Anahtarı
+        <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener" class="font-medium text-fg underline underline-offset-2">aistudio.google.com/apikey</a>
+        adresinden ücretsiz alabilirsin. Kaydedilen anahtar bir daha ekranda gösterilmez; buraya girilen anahtar .env dosyasındakinin yerine geçer.
+      </p>
+
+      @if (geminiResult(); as r) {
+        <div
+          class="mt-3 flex items-start gap-2 rounded-lg px-3 py-2.5 text-[13px]"
+          [class]="r.ok ? 'bg-success-soft text-success-text' : 'bg-accent-soft text-accent-text'"
+          role="status"
+        >
+          <app-icon [name]="r.ok ? 'check' : 'alert-circle'" [size]="15" class="mt-px" />
+          <span>{{ r.text }}</span>
+        </div>
+      }
+
+      <div class="mt-5 flex flex-wrap items-center gap-2 border-t border-line pt-4">
+        <button type="submit" class="btn btn-primary" [disabled]="!geminiKey().trim() || savingGemini()">
+          @if (savingGemini()) {
+            <app-icon name="spinner" />
+          }
+          Kaydet
+        </button>
+        <button type="button" class="btn btn-secondary" [disabled]="!cfg.gemini.hasApiKey || testingGemini()" (click)="testGemini()">
+          <app-icon [name]="testingGemini() ? 'spinner' : 'activity'" />
+          Bağlantıyı test et
+        </button>
+        @if (cfg.gemini.source === 'ui') {
+          <button type="button" class="btn btn-ghost ml-auto" (click)="clearGemini()">
+            <app-icon name="trash" [size]="14" /> Kaldır
+          </button>
+        }
+      </div>
+    </form>
+  </section>
+
   <!-- E-posta -->
   <section id="e-posta" class="grid scroll-mt-20 gap-4 border-b border-line py-8 lg:grid-cols-[200px_minmax(0,1fr)] lg:gap-8">
     <div>
@@ -286,12 +368,14 @@
   <section id="yerel-bot" class="grid scroll-mt-20 gap-4 py-8 lg:grid-cols-[200px_minmax(0,1fr)] lg:gap-8">
     <div>
       <h2 class="text-[15px] font-semibold">Yerel bot</h2>
-      <p class="mt-1 text-[13px] leading-relaxed text-fg-muted">Kendi bilgisayarında çalışan, kurulum gerektirmeyen Python sürümü.</p>
+      <p class="mt-1 text-[13px] leading-relaxed text-fg-muted">
+        Bu uygulamayı açık tutmadan, arka planda sessizce çalışan Python sürümü.
+      </p>
     </div>
     <div class="card min-w-0 p-4 sm:p-5">
       <p class="text-[13px] leading-relaxed text-fg-muted">
-        <code class="kbd-mono text-fg">bot.py</code> yalnızca Python 3 ile çalışır, ek paket istemez. Kanal listesini bu uygulamadan alır.
-        E-posta ve Gemini anahtarını yanındaki <code class="kbd-mono text-fg">.env</code> dosyasına yaz.
+        <code class="kbd-mono text-fg">bot.py</code> aynı işi yapar: kanalları tarar, yeni videoyu Gemini ile özetler, e-postana gönderir.
+        Yalnızca Python 3 gerekir, başka bir şey kurulmaz. Kanal listesini bu uygulamadan alır.
       </p>
       <div class="mt-3 flex flex-wrap gap-2">
         <button type="button" class="btn btn-secondary btn-sm" (click)="downloadBot()">
@@ -301,12 +385,107 @@
           <app-icon name="download" [size]="14" /> channels.json indir
         </button>
       </div>
-      <p class="field-label mt-5">Kanalları eşitle ve başlat</p>
-      <pre class="kbd-mono overflow-x-auto rounded-lg border border-line bg-surface-2 px-3 py-2.5 text-[12.5px] leading-relaxed text-fg"><span class="text-fg-subtle">$</span> python3 bot.py sync "{{ botSyncUrl() }}"
-<span class="text-fg-subtle">$</span> python3 bot.py start</pre>
-      <div class="mt-4 flex items-start gap-2.5 rounded-lg bg-surface-2 px-3 py-2.5 text-[13px] leading-relaxed text-fg-muted">
+
+      <div class="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-line pt-5">
+        <p class="text-sm font-semibold">Kurulum</p>
+        <app-segmented [options]="osOptions" [(value)]="botOs" label="İşletim sistemi" />
+      </div>
+
+      <ol class="mt-4 space-y-5">
+        <li class="flex gap-3">
+          <span class="kbd-mono flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-surface-3 text-xs font-medium">1</span>
+          <div class="min-w-0 flex-1 text-[13px] leading-relaxed text-fg-muted">
+            <p class="font-medium text-fg">Python'u kur</p>
+            @if (botOs() === 'windows') {
+              <p class="mt-1">
+                <a href="https://www.python.org/downloads/" target="_blank" rel="noopener" class="font-medium text-fg underline underline-offset-2">python.org</a>
+                adresinden indir. Kurulumun ilk ekranında <b class="text-fg">"Add python.exe to PATH"</b> kutusunu işaretlemeyi unutma.
+              </p>
+            } @else {
+              <p class="mt-1">Çoğu dağıtımda zaten kurulu. Değilse:</p>
+              <div class="mt-2"><app-code-block code="# Arch / CachyOS
+sudo pacman -S python
+# Ubuntu / Debian
+sudo apt install python3" /></div>
+            }
+          </div>
+        </li>
+
+        <li class="flex gap-3">
+          <span class="kbd-mono flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-surface-3 text-xs font-medium">2</span>
+          <div class="min-w-0 flex-1 text-[13px] leading-relaxed text-fg-muted">
+            <p class="font-medium text-fg">Bir klasör aç, bot.py'yi içine koy</p>
+            <p class="mt-1">
+              Örneğin <code class="kbd-mono text-fg">{{ botDir() }}</code>. Yukarıdaki düğmeyle indirdiğin <code class="kbd-mono text-fg">bot.py</code>'yi bu klasöre taşı.
+            </p>
+          </div>
+        </li>
+
+        <li class="flex gap-3">
+          <span class="kbd-mono flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-surface-3 text-xs font-medium">3</span>
+          <div class="min-w-0 flex-1 text-[13px] leading-relaxed text-fg-muted">
+            <p class="font-medium text-fg">Aynı klasörde <code class="kbd-mono">.env</code> dosyası oluştur</p>
+            <p class="mt-1">İçine şunu yapıştır ve kendi bilgilerinle değiştir:</p>
+            <div class="mt-2"><app-code-block [code]="botEnvTemplate()" /></div>
+            @if (botOs() === 'windows') {
+              <p class="mt-2">
+                Not Defteri'nde <b class="text-fg">Farklı kaydet</b> → Kayıt türü: <b class="text-fg">Tüm dosyalar</b> → Dosya adı:
+                <code class="kbd-mono text-fg">.env</code>. Yoksa dosya <code class="kbd-mono">.env.txt</code> olarak kaydolur ve okunmaz.
+              </p>
+            }
+          </div>
+        </li>
+
+        <li class="flex gap-3">
+          <span class="kbd-mono flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-surface-3 text-xs font-medium">4</span>
+          <div class="min-w-0 flex-1 text-[13px] leading-relaxed text-fg-muted">
+            <p class="font-medium text-fg">Kanalları al, dene ve başlat</p>
+            <p class="mt-1">
+              {{ botOs() === 'windows' ? 'Başlat menüsünden "Terminal" ya da "PowerShell" aç' : 'Bir terminal aç' }} ve sırayla çalıştır:
+            </p>
+            <div class="mt-2"><app-code-block [code]="botSetupCommands()" /></div>
+            <p class="mt-2">
+              <code class="kbd-mono text-fg">test</code> komutu Gemini anahtarını dener ve sana bir test e-postası atar.
+            </p>
+          </div>
+        </li>
+
+        <li class="flex gap-3">
+          <span class="kbd-mono flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-surface-3 text-xs font-medium">5</span>
+          <div class="min-w-0 flex-1 text-[13px] leading-relaxed text-fg-muted">
+            <p class="font-medium text-fg">Bilgisayar açılınca otomatik başlasın</p>
+            <div class="mt-2"><app-code-block [code]="py() + ' bot.py autostart on'" /></div>
+            @if (botOs() === 'windows') {
+              <p class="mt-2">
+                Başlangıç klasörüne bir kısayol eklenir; Windows'a her giriş yaptığında bot pencere açmadan arka planda başlar.
+                Yönetici izni gerekmez.
+              </p>
+            } @else {
+              <p class="mt-2">
+                Bir systemd kullanıcı servisi kurulur ve bot hemen başlar. Oturum açmayı beklemeden, bilgisayar açılır açılmaz başlaması için bir kez şunu çalıştır:
+              </p>
+              <div class="mt-2"><app-code-block code="sudo loginctl enable-linger $USER" /></div>
+            }
+            <p class="mt-2">Kapatmak için <code class="kbd-mono text-fg">{{ py() }} bot.py autostart off</code>.</p>
+          </div>
+        </li>
+      </ol>
+
+      <p class="mt-6 border-t border-line pt-5 text-sm font-semibold">Komutlar</p>
+      <ul class="mt-3 divide-y divide-line overflow-hidden rounded-lg border border-line">
+        @for (c of botCommands(); track c.cmd) {
+          <li class="flex flex-col gap-0.5 px-3 py-2 sm:flex-row sm:items-center sm:gap-4">
+            <code class="kbd-mono overflow-x-auto whitespace-nowrap text-[12.5px] text-fg sm:w-[250px] sm:shrink-0">{{ c.cmd }}</code>
+            <span class="text-[13px] text-fg-muted">{{ c.desc }}</span>
+          </li>
+        }
+      </ul>
+
+      <div class="mt-4 flex items-start gap-2.5 rounded-lg bg-warning-soft px-3 py-2.5 text-[13px] leading-relaxed text-warning-text">
         <app-icon name="info" [size]="15" class="mt-0.5" />
-        <span>Bot ile bu sunucudaki otomatik taramayı aynı anda açık tutarsan her video için iki e-posta gelir. Birini kapat.</span>
+        <span>
+          Botu kullanıyorsan bu uygulamadaki <b>Otomatik tarama</b>'yı kapat. İkisi aynı anda açıksa her video için iki e-posta gelir.
+        </span>
       </div>
     </div>
   </section>

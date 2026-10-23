@@ -149,3 +149,41 @@ export class CopyField {
     }
   }
 }
+
+/** Kopyalama düğmeli, çok satırlı komut/kod bloğu. */
+@Component({
+  selector: 'app-code-block',
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  imports: [Icon],
+  template: `
+    <div class="group relative">
+      <pre
+        class="kbd-mono overflow-x-auto rounded-lg border border-line bg-surface-2 py-2.5 pl-3 pr-11 text-[12.5px] leading-relaxed text-fg"
+      >{{ code() }}</pre>
+      <button
+        type="button"
+        class="absolute right-1.5 top-1.5 flex h-7 w-7 items-center justify-center rounded-md text-fg-subtle transition-colors hover:bg-surface hover:text-fg"
+        [attr.aria-label]="copied() ? 'Kopyalandı' : 'Kopyala'"
+        [title]="copied() ? 'Kopyalandı' : 'Kopyala'"
+        (click)="copy()"
+      >
+        <app-icon [name]="copied() ? 'check' : 'copy'" [size]="14" />
+      </button>
+    </div>
+  `,
+})
+export class CodeBlock {
+  private readonly toast = inject(ToastService);
+  readonly code = input.required<string>();
+  protected readonly copied = signal(false);
+
+  async copy(): Promise<void> {
+    try {
+      await navigator.clipboard.writeText(this.code());
+      this.copied.set(true);
+      setTimeout(() => this.copied.set(false), 1800);
+    } catch {
+      this.toast.error('Kopyalanamadı, metni elle seçip kopyala.');
+    }
+  }
+}

@@ -1,5 +1,6 @@
 import { GoogleGenAI, MediaResolution, type Part } from '@google/genai';
 import type { Summary, SummaryBasis, SummaryLanguage, SummaryLength } from '../shared/types';
+import { getStore } from './store';
 import { parseChapters, videoUrl } from './youtube';
 
 /**
@@ -19,8 +20,8 @@ let client: GoogleGenAI | null = null;
 let clientKey = '';
 
 function getClient(): GoogleGenAI | null {
-  const key = (process.env['GEMINI_API_KEY'] ?? '').trim();
-  if (!key || key === 'MY_GEMINI_API_KEY') return null;
+  const key = getStore().geminiApiKey;
+  if (!key) return null;
   if (!client || clientKey !== key) {
     client = new GoogleGenAI({ apiKey: key });
     clientKey = key;
@@ -222,6 +223,35 @@ export async function summarizeVideo(input: SummaryInput): Promise<Summary> {
     }
   }
   throw lastError instanceof Error ? lastError : new Error('Özet üretilemedi');
+}
+
+/** Ayarlar sayfasındaki "Bağlantıyı test et" için: anahtarla küçük bir istek atar, çalışan modeli döner. */
+export async function testGeminiKey(): Promise<string> {
+  const ai = getClient();
+  if (!ai) throw new Error('Gemini API anahtarı girilmemiş.');
+  let lastError: unknown = null;
+  for (const model of candidateModels()) {
+    try {
+      const res = await ai.models.generateContent({
+        model,
+        contents: 'Sadece "tamam" yaz.',
+        config: { abortSignal: AbortSignal.timeout(30_000) },
+      });
+      if (res.text) return model;
+    } catch (err) {
+      lastError = err;
+    }
+  }
+  throw new Error(describeGeminiError(lastError));
+}
+
+/** Gemini hatalarını anlaşılır Türkçe mesaja çevirir. */
+export function describeGeminiError(err: unknown): string {
+  const msg = err instanceof Error ? err.message : String(err ?? '');
+  if (/API_KEY_INVALID|API key not valid|PERMISSION_DENIED.*key/i.test(msg)) return 'API anahtarı geçersiz. Anahtarı kontrol et.';
+  if (/RESOURCE_EXHAUSTED|429|quota/i.test(msg)) return 'Gemini kotası doldu ya da istek sınırına takıldı. Biraz sonra tekrar dene.';
+  if (/UNAVAILABLE|503|high demand|overloaded/i.test(msg)) return 'Gemini şu an yoğun (503). Anahtar çalışıyor olabilir; birazdan tekrar dene.';
+  return `Gemini yanıt vermedi: ${msg.slice(0, 200)}`;
 }
 
 /** Gemini kullanılamadığında e-postaya konacak dürüst yedek içerik. */

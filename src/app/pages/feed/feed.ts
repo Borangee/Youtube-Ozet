@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, signal, viewChild } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import type { Digest, DigestStatus, LogLevel } from '../../../shared/types';
 import { relativeTime } from '../../core/format';
@@ -6,6 +6,7 @@ import { AppStore } from '../../core/store';
 import { Icon } from '../../ui/icon';
 import { DigestCard } from './digest-card';
 import { EmailPreview } from './email-preview';
+import { ManualSummarize } from './manual-summarize';
 
 type Filter = 'all' | 'sent' | 'pending' | 'failed' | 'skipped';
 
@@ -21,7 +22,7 @@ const DISMISS_KEY = 'ozetci.setupDismissed';
 @Component({
   selector: 'app-feed',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [Icon, RouterLink, DigestCard, EmailPreview],
+  imports: [Icon, RouterLink, DigestCard, EmailPreview, ManualSummarize],
   template: `
     <header class="mb-6">
       <h1 class="text-2xl font-semibold tracking-tight">Akış</h1>
@@ -75,6 +76,10 @@ const DISMISS_KEY = 'ozetci.setupDismissed';
       }
     </section>
 
+    @if (store.channels().length > 0) {
+      <app-manual-summarize class="mb-6" (show)="reveal($event)" />
+    }
+
     @if (store.digests().length > 0) {
       <div class="-mx-4 mb-4 flex gap-1.5 overflow-x-auto px-4 pb-1 sm:mx-0 sm:px-0" role="tablist" aria-label="Filtre">
         @for (f of filters(); track f.key) {
@@ -94,7 +99,7 @@ const DISMISS_KEY = 'ozetci.setupDismissed';
 
       <div class="flex flex-col gap-3">
         @for (d of visible(); track d.id) {
-          <app-digest-card [digest]="d" [expanded]="openId() === d.id" (toggled)="toggle(d.id)" (previewEmail)="previewing.set($event)" />
+          <app-digest-card [attr.id]="'digest-' + d.id" class="scroll-mt-24" [digest]="d" [expanded]="openId() === d.id" (toggled)="toggle(d.id)" (previewEmail)="previewing.set($event)" />
         } @empty {
           <p class="card px-4 py-10 text-center text-sm text-fg-muted">Bu filtrede video yok.</p>
         }
@@ -113,13 +118,11 @@ const DISMISS_KEY = 'ozetci.setupDismissed';
             bir kanalın son videosunu hemen özetleyebilirsin.
           }
         </p>
-        <a routerLink="/kanallar" class="btn btn-primary mt-5">
-          @if (store.channels().length === 0) {
-            <app-icon name="plus" /> Kanal ekle
-          } @else {
-            <app-icon name="sparkles" /> Son videoyu özetle
-          }
-        </a>
+        @if (store.channels().length === 0) {
+          <a routerLink="/kanallar" class="btn btn-primary mt-5"><app-icon name="plus" /> Kanal ekle</a>
+        } @else {
+          <button type="button" class="btn btn-primary mt-5" (click)="openManual()"><app-icon name="sparkles" /> Bir videoyu özetle</button>
+        }
       </section>
     }
 
@@ -156,6 +159,7 @@ export class Feed {
   protected readonly filter = signal<Filter>('all');
   protected readonly openId = signal<string | null>(null);
   protected readonly previewing = signal<Digest | null>(null);
+  private readonly manual = viewChild(ManualSummarize);
   protected readonly showAllLogs = signal(false);
   protected readonly setupDismissed = signal(this.readDismissed());
 
@@ -183,11 +187,11 @@ export class Feed {
       {
         key: 'gemini',
         done: Boolean(s?.gemini),
-        title: 'Gemini API anahtarı',
-        hint: 'Sunucuda GEMINI_API_KEY tanımlı değil. AI Studio bunu otomatik ekler; kendi sunucunda .env dosyasına yaz.',
-        link: null,
-        fragment: undefined,
-        cta: '',
+        title: 'Gemini API anahtarını gir',
+        hint: 'Özetler için gerekli. Ücretsiz anahtarı aistudio.google.com/apikey adresinden alıp Ayarlar’a yapıştır.',
+        link: '/ayarlar',
+        fragment: 'gemini',
+        cta: 'Ekle',
       },
       {
         key: 'auth',
@@ -235,6 +239,19 @@ export class Feed {
   });
 
   protected readonly logs = computed(() => this.store.logs().slice(0, this.showAllLogs() ? 60 : 6));
+
+  /** Elle özetlenen videonun kartını açıp ekrana kaydırır. */
+  reveal(id: string): void {
+    this.filter.set('all');
+    this.openId.set(id);
+    setTimeout(() => document.getElementById(`digest-${id}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 60);
+  }
+
+  openManual(): void {
+    const panel = this.manual();
+    panel?.expand();
+    setTimeout(() => document.querySelector('app-manual-summarize')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 60);
+  }
 
   toggle(id: string): void {
     this.openId.set(this.openId() === id ? null : id);

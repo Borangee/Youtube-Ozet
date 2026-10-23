@@ -15,6 +15,7 @@ import {
 } from './auth';
 import { renderDigestEmail, sendTestEmail } from './mailer';
 import { getStore } from './store';
+import { testGeminiKey } from './summarizer';
 import {
   addChannel,
   addChannelsBulk,
@@ -23,7 +24,8 @@ import {
   rescheduleAfterSettingsChange,
   runScan,
   setAutomationEnabled,
-  summarizeLatest,
+  listChannelVideos,
+  summarizeChannelVideo,
 } from './scheduler';
 import { isChannelId, isVideoId, searchChannels } from './youtube';
 
@@ -48,6 +50,7 @@ function cronKeyValid(req: Request): boolean {
 const testEmailThrottle = throttle(20_000);
 const manualScanThrottle = throttle(15_000);
 const summarizeThrottle = throttle(5_000);
+const geminiTestThrottle = throttle(10_000);
 
 const searchCache = new Map<string, { at: number; results: ChannelSearchResult[] }>();
 
@@ -167,6 +170,19 @@ export function createApiRouter(): Router {
     }
   });
 
+  api.post('/settings/test-gemini', async (_req, res) => {
+    if (!geminiTestThrottle('test')) {
+      res.status(429).json({ error: 'Biraz bekleyip tekrar dene.' });
+      return;
+    }
+    try {
+      const model = await testGeminiKey();
+      res.json({ ok: true, model });
+    } catch (err) {
+      res.status(400).json({ error: errorText(err) });
+    }
+  });
+
   api.get('/channels/search', async (req, res) => {
     const q = String(req.query['q'] ?? '').trim().slice(0, 100);
     if (q.length < 2) {
@@ -237,18 +253,32 @@ export function createApiRouter(): Router {
     res.json(buildState());
   });
 
-  api.post('/channels/:id/summarize-latest', async (req, res) => {
+  api.get('/channels/:id/videos', async (req, res) => {
     const id = req.params['id'];
     if (!isChannelId(id)) {
       res.status(400).json({ error: 'Geçersiz kanal.' });
       return;
     }
-    if (!summarizeThrottle(id)) {
+    try {
+      res.json(await listChannelVideos(id));
+    } catch (err) {
+      res.status(502).json({ error: errorText(err) });
+    }
+  });
+
+  // videoId "latest" ise kanalın son videosu özetlenir
+  api.post('/channels/:id/videos/:videoId/summarize', async (req, res) => {
+    const { id, videoId } = req.params;
+    if (!isChannelId(id) || (videoId !== 'latest' && !isVideoId(videoId))) {
+      res.status(400).json({ error: 'Geçersiz istek.' });
+      return;
+    }
+    if (!summarizeThrottle(`${id}:${videoId}`)) {
       res.status(429).json({ error: 'Biraz bekle.' });
       return;
     }
     try {
-      const digest = await summarizeLatest(id, Boolean(req.body?.sendEmail));
+      const digest = await summarizeChannelVideo(id, videoId === 'latest' ? null : videoId, Boolean(req.body?.sendEmail));
       res.json({ digest, state: buildState() });
     } catch (err) {
       res.status(400).json({ error: errorText(err) });

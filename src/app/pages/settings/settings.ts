@@ -3,7 +3,7 @@ import type { SettingsUpdate, SummaryLanguage, SummaryLength } from '../../../sh
 import { Api, AuthSession, apiError } from '../../core/api';
 import { AppStore } from '../../core/store';
 import { ThemeService, ToastService, type ThemePreference } from '../../core/ui-services';
-import { CopyField, Segmented, Switch, type SegmentOption } from '../../ui/controls';
+import { CodeBlock, CopyField, Segmented, Switch, type SegmentOption } from '../../ui/controls';
 import { Icon, type IconName } from '../../ui/icon';
 
 interface Section {
@@ -15,7 +15,7 @@ interface Section {
 @Component({
   selector: 'app-settings',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [Icon, Switch, Segmented, CopyField],
+  imports: [Icon, Switch, Segmented, CopyField, CodeBlock],
   templateUrl: './settings.html',
 })
 export class Settings {
@@ -26,6 +26,7 @@ export class Settings {
   protected readonly theme = inject(ThemeService);
 
   protected readonly sections: Section[] = [
+    { id: 'gemini', title: 'Gemini', icon: 'sparkles' },
     { id: 'e-posta', title: 'E-posta', icon: 'mail' },
     { id: 'tarama', title: 'Tarama', icon: 'refresh' },
     { id: 'ozet', title: 'Özet', icon: 'sparkles' },
@@ -34,6 +35,13 @@ export class Settings {
     { id: 'guvenlik', title: 'Güvenlik', icon: 'shield' },
     { id: 'yerel-bot', title: 'Yerel bot', icon: 'terminal' },
   ];
+
+  // ---- gemini ---------------------------------------------------------
+  protected readonly geminiKey = signal('');
+  protected readonly showGeminiKey = signal(false);
+  protected readonly savingGemini = signal(false);
+  protected readonly testingGemini = signal(false);
+  protected readonly geminiResult = signal<{ ok: boolean; text: string } | null>(null);
 
   // ---- e-posta formu -------------------------------------------------
   protected readonly sender = signal('');
@@ -91,6 +99,48 @@ export class Settings {
   });
   protected readonly authEnabled = computed(() => this.store.status()?.setup.auth ?? false);
 
+  // ---- yerel bot kurulum rehberi ---------------------------------------
+  protected readonly botOs = signal<'windows' | 'linux'>(/windows/i.test(navigator.userAgent) ? 'windows' : 'linux');
+  protected readonly osOptions: SegmentOption<'windows' | 'linux'>[] = [
+    { value: 'windows', label: 'Windows' },
+    { value: 'linux', label: 'Linux' },
+  ];
+  protected readonly py = computed(() => (this.botOs() === 'windows' ? 'py' : 'python3'));
+  protected readonly botDir = computed(() => (this.botOs() === 'windows' ? 'C:\\YouTubeOzet' : '~/youtube-ozet-bot'));
+  protected readonly botEnvTemplate = computed(() => {
+    const e = this.store.settings()?.email;
+    return [
+      'GEMINI_API_KEY=buraya-gemini-anahtarin',
+      `SENDER_EMAIL=${e?.senderEmail || 'ornek@gmail.com'}`,
+      'EMAIL_APP_PASSWORD=abcd efgh ijkl mnop',
+      `RECEIVER_EMAIL=${e?.receiverEmails.join(',') || 'ornek@gmail.com'}`,
+      'CHECK_INTERVAL_MINUTES=5',
+    ].join('\n');
+  });
+  protected readonly botSetupCommands = computed(() => {
+    const py = this.py();
+    return [`cd ${this.botDir()}`, `${py} bot.py sync "${this.botSyncUrl()}"`, `${py} bot.py test`, `${py} bot.py start`].join('\n');
+  });
+  protected readonly botCommands = computed(() => {
+    const py = this.py();
+    return [
+      { cmd: `${py} bot.py start`, desc: 'Arka planda başlatır' },
+      { cmd: `${py} bot.py stop`, desc: 'Durdurur' },
+      { cmd: `${py} bot.py restart`, desc: 'Yeniden başlatır' },
+      { cmd: `${py} bot.py status`, desc: 'Çalışıyor mu, sonraki tarama ne zaman' },
+      { cmd: `${py} bot.py logs`, desc: 'Günlüğü canlı izler (Ctrl+C ile çık)' },
+      { cmd: `${py} bot.py run`, desc: 'Ön planda çalıştırır, hataları görmek için' },
+      { cmd: `${py} bot.py test`, desc: 'Gemini anahtarını ve e-postayı dener' },
+      { cmd: `${py} bot.py scan`, desc: 'Beklemeden bir tarama yapar (bot kapalıyken)' },
+      { cmd: `${py} bot.py list`, desc: 'Takip edilen kanalları listeler' },
+      { cmd: `${py} bot.py add @kanal`, desc: 'Kanal ekler' },
+      { cmd: `${py} bot.py remove @kanal`, desc: 'Kanalı çıkarır' },
+      { cmd: `${py} bot.py sync "<adres>"`, desc: 'Kanal listesini bu uygulamadan alır' },
+      { cmd: `${py} bot.py autostart on`, desc: 'Bilgisayar açılınca otomatik başlat' },
+      { cmd: `${py} bot.py autostart off`, desc: 'Otomatik başlatmayı kapat' },
+    ];
+  });
+
   constructor() {
     // Form alanlarını sunucudan gelen değerlerle bir kez doldur
     effect(() => {
@@ -141,6 +191,41 @@ export class Settings {
     } finally {
       this.savingEmail.set(false);
     }
+  }
+
+  async saveGemini(event?: Event): Promise<void> {
+    event?.preventDefault();
+    if (!this.geminiKey().trim()) return;
+    this.savingGemini.set(true);
+    this.geminiResult.set(null);
+    try {
+      this.store.apply(await this.api.saveSettings({ gemini: { apiKey: this.geminiKey() } }));
+      this.geminiKey.set('');
+      this.toast.success('Gemini anahtarı kaydedildi.');
+      await this.testGemini();
+    } catch (err) {
+      this.toast.error(apiError(err));
+    } finally {
+      this.savingGemini.set(false);
+    }
+  }
+
+  async testGemini(): Promise<void> {
+    this.testingGemini.set(true);
+    this.geminiResult.set(null);
+    try {
+      const { model } = await this.api.testGemini();
+      this.geminiResult.set({ ok: true, text: `Bağlantı çalışıyor (${model}).` });
+    } catch (err) {
+      this.geminiResult.set({ ok: false, text: apiError(err) });
+    } finally {
+      this.testingGemini.set(false);
+    }
+  }
+
+  async clearGemini(): Promise<void> {
+    this.geminiResult.set(null);
+    await this.save({ gemini: { clear: true } }, 'Arayüzde kayıtlı Gemini anahtarı silindi.');
   }
 
   async sendTest(): Promise<void> {

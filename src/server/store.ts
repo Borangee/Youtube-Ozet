@@ -24,6 +24,7 @@ export interface StoredChannel extends Channel {
 }
 
 interface StoredSettings {
+  gemini: { apiKey: string };
   email: {
     senderEmail: string;
     receiverEmails: string[];
@@ -63,6 +64,7 @@ function defaultState(): StoredState {
   return {
     version: 2,
     settings: {
+      gemini: { apiKey: '' },
       email: { senderEmail: '', receiverEmails: [], smtpHost: '', smtpPort: 0, appPassword: '' },
       scan: { enabled: true, intervalMinutes: clampInterval(Number(env('CHECK_INTERVAL_MINUTES')) || 5), skipShorts: true },
       summary: { language: 'tr', length: 'medium', watchVideo: true },
@@ -120,6 +122,7 @@ function mergeWithDefaults(parsed: Partial<StoredState>): StoredState {
   return {
     version: 2,
     settings: {
+      gemini: { ...base.settings.gemini, ...(s?.gemini ?? {}) },
       email: { ...base.settings.email, ...(s?.email ?? {}) },
       scan: { ...base.settings.scan, ...(s?.scan ?? {}) },
       summary: { ...base.settings.summary, ...(s?.summary ?? {}) },
@@ -244,6 +247,12 @@ class Store {
     };
   }
 
+  /** Arayüzden girilen anahtar öncelikli, yoksa GEMINI_API_KEY ortam değişkeni. */
+  get geminiApiKey(): string {
+    const fromEnv = env('GEMINI_API_KEY');
+    return this.state.settings.gemini.apiKey || (fromEnv === 'MY_GEMINI_API_KEY' ? '' : fromEnv);
+  }
+
   get scan() {
     return this.state.settings.scan;
   }
@@ -258,7 +267,12 @@ class Store {
 
   publicSettings(): PublicSettings {
     const e = this.email;
+    const uiKey = Boolean(this.state.settings.gemini.apiKey);
     return {
+      gemini: {
+        hasApiKey: Boolean(this.geminiApiKey),
+        source: uiKey ? 'ui' : this.geminiApiKey ? 'env' : null,
+      },
       email: {
         senderEmail: e.senderEmail,
         receiverEmails: e.receiverEmails,
@@ -273,6 +287,14 @@ class Store {
 
   updateSettings(update: SettingsUpdate): void {
     const s = this.state.settings;
+    if (update.gemini) {
+      if (update.gemini.clear) s.gemini.apiKey = '';
+      const key = typeof update.gemini.apiKey === 'string' ? update.gemini.apiKey.trim() : '';
+      if (key) {
+        if (!/^[A-Za-z0-9._-]{20,200}$/.test(key)) throw new Error('Gemini API anahtarı geçersiz görünüyor.');
+        s.gemini.apiKey = key;
+      }
+    }
     if (update.email) {
       const u = update.email;
       if (typeof u.senderEmail === 'string') {

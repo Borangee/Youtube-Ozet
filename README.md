@@ -7,6 +7,8 @@ Takip ettiğin YouTube kanalları yeni video yüklediğinde videoyu Gemini ile �
 - Özet; kısa bir "Kısaca" cümlesi, paragraflar, öne çıkanlar ve (açıklamada varsa) tıklanabilir bölüm listesiyle e-postana gelir.
 - Shorts videoları, henüz başlamamış prömiyerler ve süren canlı yayınlar ayrı ele alınır.
 - E-posta ya da Gemini hata verirse video kaybolmaz; 10 dakika arayla 3 kez yeniden denenir.
+- Akış sayfasındaki **Elle özetle** paneliyle bir kanalın son 10 videosundan birini seçip beklemeden özetleyebilirsin.
+- Kanallar; arayarak, link/@kullanıcıadı yapıştırarak, Google hesabından ya da Google Takeout dosyasından aktarılarak eklenir.
 
 ## AI Studio'da çalıştırma
 
@@ -37,7 +39,8 @@ npm install
 npm run dev
 ```
 
-Sonra tarayıcıda **http://localhost:3000** adresini aç. `.env`'de `APP_PASSWORD` tanımladıysan giriş ekranı o şifreyi sorar;
+Sonra tarayıcıda **http://localhost:3000** adresini aç. Gemini anahtarını `.env` yerine **Ayarlar → Gemini** bölümüne de
+yapıştırabilirsin. `.env`'de `APP_PASSWORD` tanımladıysan giriş ekranı o şifreyi sorar;
 boş bıraktıysan doğrudan açılır (yalnızca kendi bilgisayarında kullanıyorsan sorun değil).
 
 `npm run dev` geliştirme modudur; kodu değiştirdikçe sayfa kendini yeniler. Sürekli açık kalacak bir kurulum için:
@@ -65,17 +68,65 @@ dosyası varsa, ilk açılışta içindeki kanallar otomatik taşınır.
 
 ## Yerel Python botu (`bot.py`)
 
-Node kurmak istemiyorsan aynı işi yapan, yalnızca Python 3 standart kütüphanesiyle çalışan bir bot da var.
-Kanal listesini **Ayarlar → Yerel bot** bölümündeki komutla bu uygulamadan alır:
+Web uygulamasını açık tutmak istemiyorsan aynı işi arka planda sessizce yapan bir Python botu var. Yalnızca Python 3.8+
+gerekir, `pip` ile hiçbir şey kurulmaz. Windows ve Linux'ta çalışır. Adımların aynısı uygulamada **Ayarlar → Yerel bot**
+bölümünde, kopyalanabilir komutlarla da var.
 
-```bash
-python3 bot.py sync "https://<uygulama-adresi>/api/bot/channels?key=..."
-python3 bot.py start      # arka planda başlat
-python3 bot.py status     # durum
-```
+### Kurulum
 
-E-posta ve Gemini bilgileri `bot.py`'nin yanındaki `.env` dosyasından okunur. Bot ile sunucudaki otomatik
-taramayı aynı anda açık tutarsan her video için iki e-posta gelir.
+1. **Python'u kur.**
+   - Windows: [python.org](https://www.python.org/downloads/) adresinden indir; kurulumun ilk ekranında
+     **"Add python.exe to PATH"** kutusunu işaretle.
+   - Linux: çoğu dağıtımda kurulu. Değilse `sudo pacman -S python` (Arch/CachyOS) ya da `sudo apt install python3`.
+2. **Bir klasör aç** (ör. `C:\YouTubeOzet` ya da `~/youtube-ozet-bot`) ve `bot.py`'yi içine koy
+   (uygulamadaki "bot.py indir" düğmesiyle ya da bu depodan).
+3. **Aynı klasörde `.env` dosyası oluştur:**
+
+   ```
+   GEMINI_API_KEY=buraya-gemini-anahtarin
+   SENDER_EMAIL=ornek@gmail.com
+   EMAIL_APP_PASSWORD=abcd efgh ijkl mnop
+   RECEIVER_EMAIL=ornek@gmail.com
+   CHECK_INTERVAL_MINUTES=5
+   ```
+
+   Windows'ta Not Defteri ile kaydederken **Kayıt türü: Tüm dosyalar** seç; yoksa dosya `.env.txt` olur ve okunmaz.
+4. **Kanalları al, dene, başlat.** Windows'ta `py`, Linux'ta `python3` yaz:
+
+   ```bash
+   cd C:\YouTubeOzet                       # Linux: cd ~/youtube-ozet-bot
+   py bot.py sync "http://localhost:3000/api/bot/channels?key=..."   # adres Ayarlar > Yerel bot'ta
+   py bot.py test                          # Gemini anahtarını dener, test e-postası atar
+   py bot.py start                         # arka planda başlatır
+   ```
+
+5. **Bilgisayar açılınca otomatik başlasın:**
+
+   ```bash
+   py bot.py autostart on
+   ```
+
+   - Windows: Başlangıç klasörüne bir kısayol eklenir; Windows'a her girişte bot pencere açmadan başlar. Yönetici izni gerekmez.
+   - Linux: bir systemd kullanıcı servisi kurulur ve bot hemen başlar. Oturum açmayı beklemeden, bilgisayar açılır açılmaz
+     başlaması için bir kez `sudo loginctl enable-linger $USER` çalıştır.
+   - Kapatmak için `py bot.py autostart off`.
+
+### Komutlar
+
+| Komut | Ne yapar |
+| --- | --- |
+| `bot.py start` / `stop` / `restart` | Arka planda başlatır / durdurur / yeniden başlatır |
+| `bot.py status` | Çalışıyor mu, otomatik başlatma açık mı, sonraki tarama ne zaman |
+| `bot.py logs` | Günlüğü canlı izler (Ctrl+C ile çık) |
+| `bot.py run` | Ön planda çalıştırır; bir sorun olursa hatayı görmek için |
+| `bot.py test` | Gemini anahtarını dener ve test e-postası gönderir |
+| `bot.py scan` | Beklemeden bir tarama yapar (bot arka planda çalışmıyorken) |
+| `bot.py list` | Takip edilen kanalları listeler |
+| `bot.py add @kanal` / `remove @kanal` | Kanal ekler / çıkarır |
+| `bot.py sync "<adres>"` | Kanal listesini web uygulamasından alır |
+| `bot.py autostart on` / `off` / `status` | Bilgisayar açılınca otomatik başlatmayı yönetir |
+
+Bot ile web uygulamasındaki **Otomatik tarama**'yı aynı anda açık tutarsan her video için iki e-posta gelir; birini kapat.
 
 ## Testler
 

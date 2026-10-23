@@ -149,6 +149,42 @@ describe('zamanlayıcı', () => {
     expect(pub.email.hasAppPassword).toBe(true);
   });
 
+  it('kanalın son videolarını listeler ve seçilen videoyu elle özetler', async () => {
+    const videos = await scheduler.listChannelVideos(CH);
+    expect(videos.length).toBeGreaterThan(2);
+    expect(videos[0]).toMatchObject({ id: 'vid00000004', isShort: false });
+
+    const before = storeModule.getStore().digests.length;
+    const d = await scheduler.summarizeChannelVideo(CH, 'vid00000001', false);
+    expect(d.source).toBe('manual');
+    expect(d.wantsEmail).toBe(false);
+    expect(storeModule.getStore().digests.length).toBe(before + 1);
+    await vi.waitFor(async () => {
+      await scheduler.drainQueue();
+      expect(storeModule.getStore().findDigest('vid00000001')?.status).toBe('ready');
+    });
+    await expect(scheduler.summarizeChannelVideo(CH, 'yokboylebir', false)).rejects.toThrow(/bulunamadı/);
+  });
+
+  it('elle istenince Shorts da özetlenir', async () => {
+    await scheduler.summarizeChannelVideo(CH, 'short000001', false);
+    const d = storeModule.getStore().findDigest('short000001')!;
+    expect(d.source).toBe('manual');
+    expect(['queued', 'processing', 'ready']).toContain(d.status);
+  });
+
+  it('Gemini anahtarı ayarlardan kaydedilir ama geri okunmaz', () => {
+    const store = storeModule.getStore();
+    expect(store.publicSettings().gemini).toEqual({ hasApiKey: false, source: null });
+    store.updateSettings({ gemini: { apiKey: 'AQ.test-anahtar-1234567890' } });
+    expect(store.geminiApiKey).toBe('AQ.test-anahtar-1234567890');
+    expect(store.publicSettings().gemini).toEqual({ hasApiKey: true, source: 'ui' });
+    expect(JSON.stringify(store.publicSettings())).not.toContain('test-anahtar');
+    expect(() => store.updateSettings({ gemini: { apiKey: 'boşluklu anahtar' } })).toThrow();
+    store.updateSettings({ gemini: { clear: true } });
+    expect(store.publicSettings().gemini.hasApiKey).toBe(false);
+  });
+
   it('geçersiz e-posta adreslerini reddeder', () => {
     expect(() => storeModule.getStore().updateSettings({ email: { senderEmail: 'a@b.com\nBcc: x@y.com' } })).toThrow();
     storeModule.getStore().updateSettings({ email: { receiverEmails: ['ok@example.com', 'bozuk', 'x@y.com\r\nBcc: z@z.com'] } });

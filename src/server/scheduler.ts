@@ -1,7 +1,7 @@
-import type { AutomationStatus, BulkAddResult, Channel, ChannelCandidate, Digest } from '../shared/types';
+import type { AutomationStatus, BulkAddResult, Channel, ChannelCandidate, ChannelVideo, Digest } from '../shared/types';
 import { isEmailConfigured, renderDigestEmail, sendEmail } from './mailer';
 import { getStore, toPublicChannel, type StoredChannel } from './store';
-import { fallbackSummary, isGeminiConfigured, summarizeVideo } from './summarizer';
+import { describeGeminiError, fallbackSummary, isGeminiConfigured, summarizeVideo } from './summarizer';
 import {
   checkIsShort,
   defaultThumbnail,
@@ -348,7 +348,7 @@ async function processDigest(d: Digest): Promise<void> {
           });
         } catch (err) {
           if (d.attempts < MAX_ATTEMPTS) {
-            scheduleRetry(d, `Gemini özeti alınamadı: ${errorMessage(err).slice(0, 160)}`);
+            scheduleRetry(d, describeGeminiError(err));
             return;
           }
           // Son denemede de olmadıysa en azından bildirimi özetsiz gönder
@@ -391,25 +391,48 @@ async function processDigest(d: Digest): Promise<void> {
 // Elle yapılan işlemler
 // ---------------------------------------------------------------------------
 
-export async function summarizeLatest(channelId: string, sendMail: boolean): Promise<Digest> {
+/** Kanalın son videoları (elle özetleme paneli için). */
+export async function listChannelVideos(channelId: string, limit = 10): Promise<ChannelVideo[]> {
+  const ch = getStore().findChannel(channelId);
+  if (!ch) throw new Error('Kanal bulunamadı.');
+  const feed = await fetchChannelFeed(ch.id);
+  return feed.entries.slice(0, limit).map((e) => {
+    feedDescriptions.set(e.id, e.description);
+    return { id: e.id, title: e.title, publishedAt: e.publishedAt, thumbnail: defaultThumbnail(e.id), isShort: e.isShortLink };
+  });
+}
+
+/**
+ * Bir kanalın belirli bir videosunu (ya da videoId verilmezse son videosunu)
+ * hemen özetler. Elle istendiği için Shorts olsa da atlanmaz.
+ */
+export async function summarizeChannelVideo(channelId: string, videoId: string | null, sendMail: boolean): Promise<Digest> {
   const store = getStore();
   const ch = store.findChannel(channelId);
   if (!ch) throw new Error('Kanal bulunamadı.');
   const feed = await fetchChannelFeed(ch.id);
-  const entry = feed.entries[0];
-  if (!entry) throw new Error('Bu kanalda henüz video yok.');
+  const entry = videoId ? feed.entries.find((e) => e.id === videoId) : feed.entries[0];
+  if (!entry) throw new Error(videoId ? 'Bu video kanalın son videoları arasında bulunamadı.' : 'Bu kanalda henüz video yok.');
+  // Elle özetlenen video, otomatik taramada ikinci kez e-posta üretmesin
   store.markSeen(ch, [entry.id]);
+  feedDescriptions.set(entry.id, entry.description);
 
   let d = store.findDigest(entry.id);
   if (d) {
-    if (sendMail && d.status !== 'processing') {
-      d.wantsEmail = true;
-      d.status = 'queued';
-      d.attempts = 0;
-      d.nextAttemptAt = null;
+    if (d.status !== 'processing' && d.status !== 'queued') {
+      const needsSummary = !d.summary || d.status === 'failed' || d.status === 'skipped';
+      if (needsSummary || sendMail) {
+        d.source = 'manual';
+        d.wantsEmail = sendMail || (d.wantsEmail && !d.emailedAt);
+        d.status = 'queued';
+        d.statusNote = null;
+        d.attempts = 0;
+        d.nextAttemptAt = null;
+        // Önceki deneme özetsiz kaldıysa bu kez yeniden özetlensin
+        if (d.summary?.basis === 'none') d.summary = null;
+      }
     }
   } else {
-    feedDescriptions.set(entry.id, entry.description);
     d = createDigest(ch, entry, 'manual', sendMail, 'queued');
     store.addDigest(d);
   }

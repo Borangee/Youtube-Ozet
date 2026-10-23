@@ -7,6 +7,7 @@ import type {
   Channel,
   ChannelCandidate,
   ChannelSearchResult,
+  ChannelVideo,
   Digest,
   SessionInfo,
   SettingsUpdate,
@@ -97,6 +98,10 @@ export class Api {
     return firstValueFrom(this.http.put<AppState>('/api/settings', update));
   }
 
+  testGemini(): Promise<{ ok: boolean; model: string }> {
+    return firstValueFrom(this.http.post<{ ok: boolean; model: string }>('/api/settings/test-gemini', {}));
+  }
+
   sendTestEmail(): Promise<void> {
     return firstValueFrom(this.http.post<void>('/api/settings/test-email', {}));
   }
@@ -121,9 +126,15 @@ export class Api {
     return firstValueFrom(this.http.delete<AppState>(`/api/channels/${encodeURIComponent(id)}`));
   }
 
-  summarizeLatest(id: string, sendEmail: boolean): Promise<{ digest: Digest; state: AppState }> {
+  channelVideos(id: string): Promise<ChannelVideo[]> {
+    return firstValueFrom(this.http.get<ChannelVideo[]>(`/api/channels/${encodeURIComponent(id)}/videos`));
+  }
+
+  /** videoId verilmezse kanalın son videosu özetlenir. */
+  summarizeVideo(channelId: string, videoId: string | null, sendEmail: boolean): Promise<{ digest: Digest; state: AppState }> {
+    const vid = videoId ? encodeURIComponent(videoId) : 'latest';
     return firstValueFrom(
-      this.http.post<{ digest: Digest; state: AppState }>(`/api/channels/${encodeURIComponent(id)}/summarize-latest`, {
+      this.http.post<{ digest: Digest; state: AppState }>(`/api/channels/${encodeURIComponent(channelId)}/videos/${vid}/summarize`, {
         sendEmail,
       }),
     );

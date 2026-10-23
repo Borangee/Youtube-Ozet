@@ -66,3 +66,23 @@ bölünerek yeniden yazıldı.
 Üç sayfa: **Akış** (gelen özetler, durumları ve etkinlik günlüğü), **Kanallar** (tek kutudan arama, link ya da
 @kullanıcıadı ile ekleme) ve **Ayarlar**. Açık/koyu tema, mobilde alt menü, kurulum adımlarını gösteren
 kontrol listesi ve e-posta önizlemesi var.
+
+## 2. güncelleme
+
+- **Elle özetle** paneli geri geldi (Akış sayfasında): kanal seç, son 10 videosundan birini seç, "Özetle" ya da
+  "Özetle ve e-postala". Özet akışın en üstünde açılır. Elle istenen videolarda Shorts da özetlenir.
+- **YouTube aboneliklerinden aktarma** düzeltildi. Sorun: Google ile giriş, AI Studio'nun açtığı Firebase projesi
+  üzerinden yapılıyor ve bu projede yalnızca AI Studio adresleri izinliydi; `localhost` listede yoktu. Panel artık bunu
+  açılırken kontrol edip ne yapılacağını adım adım gösteriyor. Ayrıca hiçbir ayar gerektirmeyen **Google Takeout
+  dosyası** ile aktarma eklendi. Firebase modülü önceden yüklendiği için giriş penceresi engellenmiyor.
+- **Ayarlar → Gemini**: API anahtarı arayüzden girilebiliyor, "Bağlantıyı test et" ile denenebiliyor. Anahtar bir daha
+  ekrana gelmiyor; `.env`'deki anahtarın yerine geçiyor.
+- **Yerel bot** Windows'ta da çalışacak şekilde yeniden yazıldı:
+  - `start`/`stop`/`status` artık `pgrep`, `nohup`, `pkill` gibi yalnızca Linux'ta olan komutlara dayanmıyor; PID dosyası
+    kullanıyor. Eski `pkill -f bot.py`, adında bot.py geçen başka programları da kapatabiliyordu.
+  - `autostart on/off`: Windows'ta Başlangıç klasörüne kısayol, Linux'ta systemd kullanıcı servisi.
+  - `test` komutu: Gemini anahtarını dener, test e-postası atar.
+  - Gemini önce videoyu izleyerek özetliyor; aynı tarama aralığında birden fazla video, silinen videolar ve Shorts
+    sunucudaki gibi doğru ele alınıyor; gönderilemeyen e-postalar 3 kez yeniden deneniyor.
+  - Arka planda çalışırken her saniye günlüğe geri sayım satırı yazılıyordu (dosya sürekli büyüyordu); düzeltildi.
+  - `status` komutundaki sabit "~28 MB" bellek değeri kaldırıldı (gerçek ölçüm değildi).

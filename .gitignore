@@ -53,4 +53,6 @@ Thumbs.db
 bot.log
 bot_status.json
 last_videos.json
+bot.pid
+*.tmp
 __pycache__/

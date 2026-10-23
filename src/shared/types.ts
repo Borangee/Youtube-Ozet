@@ -84,6 +84,10 @@ export type SummaryLength = 'short' | 'medium' | 'long';
 export type SummaryLanguage = 'tr' | 'en';
 
 export interface PublicSettings {
+  gemini: {
+    hasApiKey: boolean;
+    source: 'ui' | 'env' | null; // anahtar arayüzden mi, ortam değişkeninden mi geliyor
+  };
   email: {
     senderEmail: string;
     receiverEmails: string[];
@@ -104,6 +108,10 @@ export interface PublicSettings {
 }
 
 export interface SettingsUpdate {
+  gemini?: {
+    apiKey?: string; // yalnızca yazılır, asla geri okunmaz
+    clear?: boolean;
+  };
   email?: {
     senderEmail?: string;
     receiverEmails?: string[];
@@ -143,6 +151,14 @@ export interface AppState {
   channels: Channel[];
   digests: Digest[];
   logs: LogEntry[];
+}
+
+export interface ChannelVideo {
+  id: string;
+  title: string;
+  publishedAt: string;
+  thumbnail: string;
+  isShort: boolean;
 }
 
 export interface ChannelSearchResult {

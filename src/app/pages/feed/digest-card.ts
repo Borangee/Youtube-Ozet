@@ -133,7 +133,18 @@ const BASIS: Record<SummaryBasis, string> = {
                 <span>· {{ s.model }}</span>
               }
             </p>
-          } @else if (d.status !== 'processing') {
+          } @else if (d.status === 'processing' || (d.status === 'queued' && !d.nextAttemptAt)) {
+            <div class="flex items-center gap-2 text-sm text-fg-muted">
+              <app-icon name="spinner" [size]="15" />
+              {{ d.status === 'processing' ? 'Gemini videoyu izleyip özetliyor. Bu bir dakika kadar sürebilir…' : 'Sırada, birazdan özetlenecek…' }}
+            </div>
+            <div class="mt-4 space-y-2.5" aria-hidden="true">
+              <div class="skeleton h-3.5 w-11/12"></div>
+              <div class="skeleton h-3.5 w-full"></div>
+              <div class="skeleton h-3.5 w-9/12"></div>
+              <div class="skeleton h-3.5 w-10/12"></div>
+            </div>
+          } @else {
             <p class="text-sm text-fg-muted">Bu video için henüz özet yok.</p>
           }
 
