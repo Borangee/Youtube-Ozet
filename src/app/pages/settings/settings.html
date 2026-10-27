@@ -86,10 +86,19 @@
           }
           Kaydet
         </button>
-        <button type="button" class="btn btn-secondary" [disabled]="!cfg.gemini.hasApiKey || testingGemini()" (click)="testGemini()">
+        <button
+          type="button"
+          class="btn btn-secondary"
+          [disabled]="(!geminiKey().trim() && !cfg.gemini.hasApiKey) || testingGemini()"
+          [title]="!geminiKey().trim() && !cfg.gemini.hasApiKey ? 'Önce bir anahtar gir' : ''"
+          (click)="testGemini()"
+        >
           <app-icon [name]="testingGemini() ? 'spinner' : 'activity'" />
           Bağlantıyı test et
         </button>
+        @if (!geminiKey().trim() && !cfg.gemini.hasApiKey) {
+          <span class="text-xs text-fg-subtle">Test etmek için önce anahtarı yapıştır.</span>
+        }
         @if (cfg.gemini.source === 'ui') {
           <button type="button" class="btn btn-ghost ml-auto" (click)="clearGemini()">
             <app-icon name="trash" [size]="14" /> Kaldır

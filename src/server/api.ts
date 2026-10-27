@@ -170,13 +170,22 @@ export function createApiRouter(): Router {
     }
   });
 
-  api.post('/settings/test-gemini', async (_req, res) => {
+  api.post('/settings/test-gemini', async (req, res) => {
+    const apiKey = typeof req.body?.apiKey === 'string' ? req.body.apiKey.trim() : '';
+    if (apiKey && !/^[A-Za-z0-9._-]{20,200}$/.test(apiKey)) {
+      res.status(400).json({ error: 'Gemini API anahtarı geçersiz görünüyor.' });
+      return;
+    }
+    if (!apiKey && !getStore().geminiApiKey) {
+      res.status(400).json({ error: 'Önce bir Gemini API anahtarı gir.' });
+      return;
+    }
     if (!geminiTestThrottle('test')) {
       res.status(429).json({ error: 'Biraz bekleyip tekrar dene.' });
       return;
     }
     try {
-      const model = await testGeminiKey();
+      const model = await testGeminiKey(apiKey || undefined);
       res.json({ ok: true, model });
     } catch (err) {
       res.status(400).json({ error: errorText(err) });

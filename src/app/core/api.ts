@@ -98,8 +98,9 @@ export class Api {
     return firstValueFrom(this.http.put<AppState>('/api/settings', update));
   }
 
-  testGemini(): Promise<{ ok: boolean; model: string }> {
-    return firstValueFrom(this.http.post<{ ok: boolean; model: string }>('/api/settings/test-gemini', {}));
+  /** apiKey verilirse kaydetmeden o anahtar denenir. */
+  testGemini(apiKey?: string): Promise<{ ok: boolean; model: string }> {
+    return firstValueFrom(this.http.post<{ ok: boolean; model: string }>('/api/settings/test-gemini', apiKey ? { apiKey } : {}));
   }
 
   sendTestEmail(): Promise<void> {

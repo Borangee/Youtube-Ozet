@@ -4,7 +4,7 @@ import { Api, apiError } from '../../core/api';
 import { relativeTime } from '../../core/format';
 import { AppStore } from '../../core/store';
 import { ToastService } from '../../core/ui-services';
-import { Avatar } from '../../ui/controls';
+import { Avatar, Segmented, type SegmentOption } from '../../ui/controls';
 import { Icon } from '../../ui/icon';
 
 const OPEN_KEY = 'ozetci.manualOpen';
@@ -27,7 +27,7 @@ const STATUS_LABEL: Partial<Record<DigestStatus, string>> = {
 @Component({
   selector: 'app-manual-summarize',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [Icon, Avatar],
+  imports: [Icon, Avatar, Segmented],
   host: { class: 'block' },
   template: `
     <section class="card overflow-hidden" aria-labelledby="manual-title">
@@ -80,7 +80,13 @@ const STATUS_LABEL: Partial<Record<DigestStatus, string>> = {
               </button>
             </div>
 
-            <p class="field-label mt-5">Son videolar</p>
+            <div class="mt-5 flex flex-wrap items-center justify-between gap-2">
+              <p class="field-label !mb-0">Son videolar</p>
+              @if (shortCount() > 0 && shortCount() < videos().length) {
+                <app-segmented [options]="kindOptions()" [(value)]="kind" label="Video türü" />
+              }
+            </div>
+            <div class="mb-1.5"></div>
             @if (loading() && videos().length === 0) {
               <div class="space-y-2" aria-label="Videolar yükleniyor">
                 @for (i of [1, 2, 3, 4]; track i) {
@@ -100,9 +106,11 @@ const STATUS_LABEL: Partial<Record<DigestStatus, string>> = {
               </div>
             } @else if (videos().length === 0) {
               <p class="text-sm text-fg-muted">Bu kanalda video bulunamadı.</p>
+            } @else if (visibleVideos().length === 0) {
+              <p class="text-sm text-fg-muted">Bu türde video yok.</p>
             } @else {
               <ul class="max-h-[440px] space-y-1.5 overflow-y-auto pr-0.5" role="listbox" aria-label="Özetlenecek video">
-                @for (v of videos(); track v.id) {
+                @for (v of visibleVideos(); track v.id) {
                   @let d = digestOf(v.id);
                   <li>
                     <button
@@ -113,15 +121,28 @@ const STATUS_LABEL: Partial<Record<DigestStatus, string>> = {
                       [class]="selectedId() === v.id ? 'border-ink bg-surface-2' : 'border-line hover:border-line-strong hover:bg-surface-2/60'"
                       (click)="selectedId.set(v.id)"
                     >
-                      <span class="relative aspect-video w-[96px] shrink-0 overflow-hidden rounded-md bg-surface-3">
-                        <img [src]="v.thumbnail" alt="" loading="lazy" referrerpolicy="no-referrer" class="h-full w-full object-cover" />
-                        @if (v.isShort) {
-                          <span class="absolute bottom-1 left-1 rounded bg-black/75 px-1 text-[10px] font-medium text-white">Shorts</span>
-                        }
-                      </span>
+                      @if (v.isShort) {
+                        <!-- Shorts dikey: dar, dik bir kare ve kırmızı etiketle ayrışır -->
+                        <span class="flex w-[96px] shrink-0 justify-center">
+                          <span class="relative aspect-[9/16] w-[38px] overflow-hidden rounded-md bg-surface-3 ring-2 ring-accent/60">
+                            <img [src]="v.thumbnail" alt="" loading="lazy" referrerpolicy="no-referrer" class="h-full w-full object-cover" />
+                          </span>
+                        </span>
+                      } @else {
+                        <span class="relative aspect-video w-[96px] shrink-0 overflow-hidden rounded-md bg-surface-3">
+                          <img [src]="v.thumbnail" alt="" loading="lazy" referrerpolicy="no-referrer" class="h-full w-full object-cover" />
+                        </span>
+                      }
                       <span class="min-w-0 flex-1">
                         <span class="line-clamp-2 text-[13.5px] font-medium leading-snug">{{ v.title }}</span>
-                        <span class="mt-0.5 block text-xs text-fg-subtle">{{ ago(v.publishedAt) }}</span>
+                        <span class="mt-0.5 flex items-center gap-1.5 text-xs text-fg-subtle">
+                          @if (v.isShort) {
+                            <span class="inline-flex items-center gap-1 rounded-full bg-accent-soft px-1.5 py-px text-[11px] font-semibold text-accent-text">
+                              <app-icon name="phone" [size]="10" [stroke]="2.2" /> Shorts
+                            </span>
+                          }
+                          {{ ago(v.publishedAt) }}
+                        </span>
                       </span>
                       @if (d) {
                         <span class="badge shrink-0" [class.badge-success]="d.status === 'sent' || d.status === 'ready'">
@@ -194,7 +215,19 @@ export class ManualSummarize {
   protected readonly error = signal<string | null>(null);
   protected readonly selectedId = signal<string | null>(null);
   protected readonly busy = signal(false);
+  protected readonly kind = signal<'all' | 'videos' | 'shorts'>('all');
   private loadSeq = 0;
+
+  protected readonly shortCount = computed(() => this.videos().filter((v) => v.isShort).length);
+  protected readonly kindOptions = computed<SegmentOption<'all' | 'videos' | 'shorts'>[]>(() => [
+    { value: 'all', label: 'Tümü' },
+    { value: 'videos', label: `Videolar ${this.videos().length - this.shortCount()}` },
+    { value: 'shorts', label: `Shorts ${this.shortCount()}` },
+  ]);
+  protected readonly visibleVideos = computed(() => {
+    const k = this.kind();
+    return k === 'all' ? this.videos() : this.videos().filter((v) => (k === 'shorts' ? v.isShort : !v.isShort));
+  });
 
   protected readonly channels = computed(() =>
     [...this.store.channels()].sort((a, b) => a.name.localeCompare(b.name, 'tr')),
@@ -235,6 +268,7 @@ export class ManualSummarize {
   selectChannel(id: string): void {
     this.channelId.set(id);
     this.selectedId.set(null);
+    this.kind.set('all');
     this.videos.set([]);
     try {
       localStorage.setItem(CHANNEL_KEY, id);

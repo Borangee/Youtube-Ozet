@@ -225,10 +225,13 @@ export async function summarizeVideo(input: SummaryInput): Promise<Summary> {
   throw lastError instanceof Error ? lastError : new Error('Özet üretilemedi');
 }
 
-/** Ayarlar sayfasındaki "Bağlantıyı test et" için: anahtarla küçük bir istek atar, çalışan modeli döner. */
-export async function testGeminiKey(): Promise<string> {
-  const ai = getClient();
-  if (!ai) throw new Error('Gemini API anahtarı girilmemiş.');
+/**
+ * Ayarlar sayfasındaki "Bağlantıyı test et" için: anahtarla küçük bir istek atar, çalışan modeli döner.
+ * apiKey verilirse kaydetmeden o anahtar denenir (kutuya yazılan ama henüz kaydedilmeyen anahtar).
+ */
+export async function testGeminiKey(apiKey?: string): Promise<string> {
+  const ai = apiKey ? new GoogleGenAI({ apiKey }) : getClient();
+  if (!ai) throw new Error('Önce bir Gemini API anahtarı gir.');
   let lastError: unknown = null;
   for (const model of candidateModels()) {
     try {

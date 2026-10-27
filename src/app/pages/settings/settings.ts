@@ -210,11 +210,17 @@ export class Settings {
     }
   }
 
+  /** Kutuya anahtar yazıldıysa onu, yazılmadıysa kayıtlı anahtarı dener. */
   async testGemini(): Promise<void> {
+    const typed = this.geminiKey().trim();
+    if (!typed && !this.store.settings()?.gemini.hasApiKey) {
+      this.geminiResult.set({ ok: false, text: 'Önce bir Gemini API anahtarı gir.' });
+      return;
+    }
     this.testingGemini.set(true);
     this.geminiResult.set(null);
     try {
-      const { model } = await this.api.testGemini();
+      const { model } = await this.api.testGemini(typed || undefined);
       this.geminiResult.set({ ok: true, text: `Bağlantı çalışıyor (${model}).` });
     } catch (err) {
       this.geminiResult.set({ ok: false, text: apiError(err) });
