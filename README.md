@@ -27,7 +27,7 @@ Cloud Run'ın dosya sistemi kalıcı değildir: sunucu yeniden başlarsa kanal l
 sürüme döner. Kalıcı kullanım için uygulamayı kendi bilgisayarında, bir VPS'te ya da kalıcı diskli bir ortamda
 çalıştır.
 
-## Kendi bilgisayarında çalıştırma (localhost:3000)
+## Kendi bilgisayarında çalıştırma (localhost:3500)
 
 [Node.js 22](https://nodejs.org) gerekir.
 
@@ -39,7 +39,7 @@ npm install
 npm run dev
 ```
 
-Sonra tarayıcıda **http://localhost:3000** adresini aç. Gemini anahtarını `.env` yerine **Ayarlar → Gemini** bölümüne de
+Sonra tarayıcıda **http://localhost:3500** adresini aç. Gemini anahtarını `.env` yerine **Ayarlar → Gemini** bölümüne de
 yapıştırabilirsin. `.env`'de `APP_PASSWORD` tanımladıysan giriş ekranı o şifreyi sorar;
 boş bıraktıysan doğrudan açılır (yalnızca kendi bilgisayarında kullanıyorsan sorun değil).
 
@@ -47,7 +47,7 @@ boş bıraktıysan doğrudan açılır (yalnızca kendi bilgisayarında kullanı
 
 ```bash
 npm run build
-npm run start:prod        # yine http://localhost:3000
+npm run start:prod        # yine http://localhost:3500
 ```
 
 Veriler `data/state.json` dosyasında tutulur (`DATA_DIR` ile değiştirilebilir). Eski sürümün `automation-state.json`
@@ -95,7 +95,7 @@ bölümünde, kopyalanabilir komutlarla da var.
 
    ```bash
    cd C:\YouTubeOzet                       # Linux: cd ~/youtube-ozet-bot
-   py bot.py sync "http://localhost:3000/api/bot/channels?key=..."   # adres Ayarlar > Yerel bot'ta
+   py bot.py sync "http://localhost:3500/api/bot/channels?key=..."   # adres Ayarlar > Yerel bot'ta
    py bot.py test                          # Gemini anahtarını dener, test e-postası atar
    py bot.py start                         # arka planda başlatır
    ```

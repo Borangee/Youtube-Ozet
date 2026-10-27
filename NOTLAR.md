@@ -6,7 +6,7 @@ Yapılacaklar ve kararlar. Tamamlananlar işaretli.
   Anahtar yokken düğme pasif ve yanında "Test etmek için önce anahtarı yapıştır" yazıyor; sunucu da anahtarsız
   isteği reddediyor. Kutuya yeni bir anahtar yazıldıysa, kaydetmeden önce o anahtar denenebiliyor.
 
-- [ ] **Gemini yerine Claude ya da başka bir yapay zekâ bağlansa daha mı iyi olur?** (karar bekliyor)
+- [x] **Gemini yerine Claude ya da başka bir yapay zekâ bağlansa daha mı iyi olur?** Karar: Gemini kalıyor.
   - Gemini, YouTube linkini doğrudan alıp videonun görüntüsünü ve sesini işleyebiliyor. Uygulamanın en isabetli
     özeti ("videoyu izleyerek özetle") buna dayanıyor.
   - Claude API'si metin, görsel ve PDF alıyor; video ya da YouTube linki almıyor. Claude ile özet için önce videonun
@@ -20,3 +20,6 @@ Yapılacaklar ve kararlar. Tamamlananlar işaretli.
 - [x] **Elle özetlemede Shorts videoları farklı görünsün.**
   Shorts dikey, kırmızı çerçeveli küçük resim ve "Shorts" etiketiyle gösteriliyor. Listede Shorts varsa
   "Tümü / Videolar / Shorts" filtresi çıkıyor.
+
+- [x] **Başka bir uygulamayla port çakışması.** Uygulama artık 3000 yerine **3500** portunda açılıyor:
+  http://localhost:3500 (Chrome ve Firefox'ta http://ozetci.localhost:3500 adresi de çalışır).

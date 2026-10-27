@@ -78,7 +78,7 @@ app.get('/{*path}', (req, res, next) => {
 });
 
 if (isMainModule(import.meta.url) || process.env['pm_id']) {
-  const port = process.env['PORT'] || 3000;
+  const port = process.env['PORT'] || 3500;
   app.listen(port, (error) => {
     if (error) throw error;
     console.log(`Özetçi http://localhost:${port} adresinde çalışıyor`);

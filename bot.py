@@ -759,7 +759,7 @@ def cmd_sync(source_url=None):
     """Web uygulamasındaki kanal listesini indirir (Ayarlar > Yerel bot'taki adres)."""
     if not source_url:
         print("Eşitleme adresi gerekli. Web uygulamasında Ayarlar > Yerel bot bölümündeki komutu kullan:")
-        print('  bot.py sync "http://localhost:3000/api/bot/channels?key=..."')
+        print('  bot.py sync "http://localhost:3500/api/bot/channels?key=..."')
         return
     try:
         req = urllib.request.Request(source_url, headers={"User-Agent": "youtube-ozet-bot"})
